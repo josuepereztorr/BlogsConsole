@@ -1,12 +1,14 @@
 ﻿using System;
+using BlogsConsole.Controller;
 
 namespace BlogsConsole
 {
     class Program
     {
+        private static readonly BloggingContext Context = new BloggingContext();
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            BloggingController controller = new BloggingController(Context);
         }
     }
 }
