@@ -26,4 +26,8 @@
       </None>
     </ItemGroup>
 
+    <ItemGroup>
+      <Compile Remove="Exceptions\InvalidTypeOfId.cs" />
+    </ItemGroup>
+
 </Project>

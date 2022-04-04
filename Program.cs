@@ -5,10 +5,12 @@ namespace BlogsConsole
 {
     class Program
     {
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
         private static readonly BloggingContext Context = new BloggingContext();
         static void Main(string[] args)
         {
-            BloggingController controller = new BloggingController(Context);
+            Logger.Info("Program started");
+            BloggingController controller = new BloggingController(Context, Logger);
         }
     }
 }

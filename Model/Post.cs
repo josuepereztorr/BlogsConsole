@@ -8,5 +8,12 @@ namespace BlogsConsole
 
         public int BlogId { get; set; }
         public Blog Blog { get; set; }
+
+        public override string ToString()
+        {
+            return $"Blog: {Blog.Name}\n" +
+                   $"{Title}\n" +
+                   $"{Content}";
+        }
     }
 }
