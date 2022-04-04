@@ -9,24 +9,21 @@ namespace BlogsConsole.View
         private static BloggingContext _context;
         private static Logger _logger;
         
-        private static string BlogId { get; set; }
-        private static string BlogName { get; set; }
-        private static string PostTitle { get; set; }
-        private static string PostContent { get; set; }
-        
+        private static Blog Blog { get; set; }
+        private static Post Post { get; set; }
+
         private static string _input;
         
-        private const string AllBlogs = "ALLBLOGS";
+        private const string AllBlog = "ALLBLOGS";
         private const string AllPost = "ALLPOSTS";
-        private const string ById = "ID";
-
+        private const string AllPostsFromBlog = "ALLPOSTSFROMBLOG";
+        
         public Display(BloggingContext context, Logger logger)
         {
             _context = context;
             _logger = logger;
         }
         
-        // Shows list of menu options
         private static void ShowMenu()
         {
             Console.Clear();
@@ -38,16 +35,15 @@ namespace BlogsConsole.View
             Console.WriteLine("Enter q to quit");
         }
         
-        // Shows a list of blogs in the database by id 
         private static void ShowAllBlogs()
         {
             _logger.Info("Option '1' selected");
+            
             Console.WriteLine($"{_context.Blogs.Count()} Blogs returned");
-            ShowTypeById(false, AllBlogs);
+            ShowListOfEntitiesByType(AllBlog);
             Console.WriteLine();
         }
         
-        // Shows prompt to enter new Blog name
         private static void ShowAddBlog()
         {
             _logger.Info("Option '2' selected");
@@ -56,15 +52,14 @@ namespace BlogsConsole.View
 
             if (!string.IsNullOrWhiteSpace(_input))
             {
-                BlogName = _input;
+                Blog.Name = _input;
             }
             else
             {
-                _logger.Info("blog name cannot be null");
+                _logger.Info("Blog name cannot be null");
             }
         }
         
-        // Shows a list of blogs in the database to choose from to create a post in, then it prompts the user to enter a title 
         private static void ShowCreatePost()
         {
             if (!_context.Blogs.Any())
@@ -72,35 +67,31 @@ namespace BlogsConsole.View
                 Console.Clear();
                 _logger.Info("Option '3' selected");
                 Console.WriteLine("Select the Blog you would like to post to: ");
-                ShowTypeById(true, AllBlogs);
+                ShowListOfEntitiesByType(AllBlog, true);
                 
                 _input = Console.ReadLine();
                 
-                // check if BlogId is an integer
                 if (int.TryParse(_input, out int blogId))
                 {
-                    // check if id is in database 
-                    if (_context.Blogs.Any(blog => blogId.Equals(blogId)))
+                    if (_context.Blogs.Any(blog => blog.BlogId.Equals(blogId)))
                     {
-                        // prompt user for PostTitle, PostContent
                         Console.WriteLine("Enter the Post title: ");
+                        
                         _input = Console.ReadLine();
                         
                         if (!string.IsNullOrWhiteSpace(_input))
                         {
-                            PostTitle = _input;
+                            Post.Title = _input;
                             
-                            // prompt user for Post.Content
                             Console.WriteLine("Enter the Post content"); 
                             _input = Console.ReadLine();
 
-                            PostContent = _input;
+                            Post.Content = _input;
                         }
                         else
                         {
                             _logger.Info("Post title cannot be null");
                         }
-
                     }
                     else
                     {
@@ -114,6 +105,7 @@ namespace BlogsConsole.View
             }
             else
             {
+                _logger.Info("No Blogs found");
                 Console.Clear();
                 Console.WriteLine("Cannot create post, there must be at least one blog created to create a new post");
                 Console.WriteLine();
@@ -128,18 +120,41 @@ namespace BlogsConsole.View
             _logger.Info("Option '4' selected");
             Console.WriteLine("Select the Blog's posts to display: ");
             Console.WriteLine("0) Posts from all blogs");
-
             
+            ShowListOfEntitiesByType(AllPostsFromBlog, true);
+
+            _input = Console.ReadLine();
+            
+            if (int.TryParse(_input, out int blogId))
+            {
+                if (_context.Blogs.Any(blog => blog.BlogId.Equals(blogId)))
+                {
+                    if (blogId.Equals(0))
+                    {
+                        ShowListOfEntitiesByType(AllPost);
+                    }
+                    ShowListOfEntitiesByType(AllPost, id: blogId);
+                }
+                else
+                {
+                    _logger.Info("There are no Blogs saved with that id");
+                }
+            }
+            else
+            {
+                _logger.Info("Invalid Blog Id");
+            }
+
         }
         
-        // Utility Methods
-        private static void ShowTypeById(bool showId, string selection, int id = 0)
+        private static void ShowListOfEntitiesByType(string entityType, bool showId = false, int id = 0)
         {
-            switch (selection)
+            int index = 0;
+            
+            switch (entityType)
             {
-                case AllBlogs:
+                case AllBlog:
                 {
-                    var index = 0;
                     foreach (var blog in _context.Blogs)
                     {
                         Console.WriteLine(showId ? $"{index++}) {blog.Name}" : blog.Name);
@@ -149,44 +164,26 @@ namespace BlogsConsole.View
                 }
                 case AllPost:
                 {
-                    ShowQueryById(_context.Posts);
+                    IQueryable<Post> query = _context.Posts.Where(post => post.BlogId.Equals(id));
+                    Console.WriteLine($"{query.Count()} item(s) returned");
+                    Console.WriteLine();
+                    foreach (var post in query)
+                    {
+                        Console.WriteLine(post.ToString());
+                        Console.WriteLine();
+                    }
                     break;
                 }
-                case ById:
-                    ShowQueryById(_context.Blogs.Where(blog => blog.BlogId.Equals(id)));
-                    break;
-            }
-        }
-
-        private static void ShowAllByType(IQueryable<BloggingContext> context, string type, bool showId)
-        {
-            var index = 0;
-
-            Console.WriteLine($"{context.Count()} item(s) returned");
-            
-            foreach (var item in context)
-            {
-                switch (type)
+                case AllPostsFromBlog:
                 {
-                    case AllBlogs:
-                        Console.WriteLine(showId ? $"{index++}) {item}" : item);
-                        break;
-                    case AllPost:
-                        Console.WriteLine(showId ? $"{index++}) from {item}" : item);
-                        break;
+                    foreach (var blog in _context.Blogs)
+                    {
+                        Console.WriteLine($"{index++}) Post from {blog.Name}");;
+                    }
+
+                    break;
                 }
             }
         }
-
-        private static void ShowQueryById<T>(IQueryable<T> contextQuery)
-        {
-            Console.WriteLine($"{contextQuery.Count()} item(s) returned");
-            foreach (var item in contextQuery)
-            {
-                Console.WriteLine(item.ToString());
-                Console.WriteLine();
-            }
-        }
-        
     }
 }
