@@ -12,8 +12,8 @@ namespace BlogsConsole
         public override string ToString()
         {
             return $"Blog: {Blog.Name}\n" +
-                   $"{Title}\n" +
-                   $"{Content}";
+                   $"Title: {Title}\n" +
+                   $"Content: {Content}";
         }
     }
 }
