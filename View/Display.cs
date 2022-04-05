@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using BlogsConsole.Controller;
 using NLog;
 
 namespace BlogsConsole.View
@@ -7,26 +10,59 @@ namespace BlogsConsole.View
     public class Display
     {
         private static BloggingContext _context;
+        private static BloggingController _controller;
         private static Logger _logger;
         
-        private static Blog Blog { get; set; }
-        private static Post Post { get; set; }
-
-        private static string _input;
+        public Blog Blog { get; set; }
+        public Post Post { get; set; }
+        
+        private string _input;
         
         private const string AllBlog = "ALLBLOGS";
         private const string AllPost = "ALLPOSTS";
         private const string AllPostsFromBlog = "ALLPOSTSFROMBLOG";
         
-        public Display(BloggingContext context, Logger logger)
+        public Display(BloggingContext context, BloggingController controller, Logger logger)
         {
             _context = context;
+            _controller = controller;
             _logger = logger;
+            Blog = new Blog();
+            Post = new Post();
+
+            do
+            {
+                ShowMenu();
+                
+                _input = Console.ReadLine();
+
+                if (string.IsNullOrWhiteSpace(_input) || !new string[] {"1","2","3","4"}.Contains(_input))
+                {
+                    _logger.Info("Invalid Selection");
+                    continue;
+                }
+
+                switch (_input)
+                {
+                    case "1":
+                        ShowAllBlogs();
+                        break;
+                    case "2":
+                        ShowAddBlog();
+                        break;
+                    case "3":
+                        ShowCreatePost();
+                        break;
+                    case "4" :
+                        ShowPosts();
+                        break;
+                }
+
+            } while (_input != null && !_input.Equals("q"));
         }
         
-        private static void ShowMenu()
+        private void ShowMenu()
         {
-            Console.Clear();
             Console.WriteLine("Enter your selection:");
             Console.WriteLine("1) Display all blogs");
             Console.WriteLine("2) Add Blog");
@@ -35,7 +71,7 @@ namespace BlogsConsole.View
             Console.WriteLine("Enter q to quit");
         }
         
-        private static void ShowAllBlogs()
+        private void ShowAllBlogs()
         {
             _logger.Info("Option '1' selected");
             
@@ -44,7 +80,7 @@ namespace BlogsConsole.View
             Console.WriteLine();
         }
         
-        private static void ShowAddBlog()
+        private void ShowAddBlog()
         {
             _logger.Info("Option '2' selected");
             Console.WriteLine("Enter a name for a new Blog: ");
@@ -53,6 +89,8 @@ namespace BlogsConsole.View
             if (!string.IsNullOrWhiteSpace(_input))
             {
                 Blog.Name = _input;
+                _controller.AddBlog(Blog);
+                _logger.Info($"Blog added - '{Blog.Name}'");
             }
             else
             {
@@ -60,9 +98,10 @@ namespace BlogsConsole.View
             }
         }
         
-        private static void ShowCreatePost()
+        private void ShowCreatePost()
         {
-            if (!_context.Blogs.Any())
+
+            if (_context.Blogs.Count() > 0)
             {
                 Console.Clear();
                 _logger.Info("Option '3' selected");
@@ -87,6 +126,15 @@ namespace BlogsConsole.View
                             _input = Console.ReadLine();
 
                             Post.Content = _input;
+                            Post.BlogId = blogId;
+                            
+                            Blog blog = _context.Blogs.First(blog => blog.BlogId == blogId);
+                            Post.Blog = blog;
+                            
+                            _controller.AddPostToBlog(blogId, Post);
+                            
+                            _logger.Info($"Post added - '{Post.Title}'");
+                            Console.WriteLine();
                         }
                         else
                         {
@@ -114,7 +162,7 @@ namespace BlogsConsole.View
             }
         }
         
-        private static void ShowPosts()
+        private void ShowPosts()
         {
             Console.Clear();
             _logger.Info("Option '4' selected");
@@ -127,17 +175,20 @@ namespace BlogsConsole.View
             
             if (int.TryParse(_input, out int blogId))
             {
-                if (_context.Blogs.Any(blog => blog.BlogId.Equals(blogId)))
+                if (blogId.Equals(0))
                 {
-                    if (blogId.Equals(0))
-                    {
-                        ShowListOfEntitiesByType(AllPost);
-                    }
-                    ShowListOfEntitiesByType(AllPost, id: blogId);
+                    ShowListOfEntitiesByType(AllPost);
                 }
                 else
                 {
-                    _logger.Info("There are no Blogs saved with that id");
+                    if (_context.Blogs.Any(blog => blog.BlogId == blogId))
+                    {
+                        ShowListOfEntitiesByType(AllPost, id:blogId);
+                    }
+                    else
+                    {
+                        _logger.Info("There are no Blogs saved with that id");
+                    }
                 }
             }
             else
@@ -147,38 +198,53 @@ namespace BlogsConsole.View
 
         }
         
-        private static void ShowListOfEntitiesByType(string entityType, bool showId = false, int id = 0)
+        private void ShowListOfEntitiesByType(string entityType, bool showId = false, int id = 0)
         {
-            int index = 0;
-            
             switch (entityType)
             {
                 case AllBlog:
                 {
                     foreach (var blog in _context.Blogs)
                     {
-                        Console.WriteLine(showId ? $"{index++}) {blog.Name}" : blog.Name);
+                        Console.WriteLine(showId ? $"{blog.BlogId}) {blog.Name}" : blog.Name);
                     }
                     
                     break;
                 }
                 case AllPost:
                 {
-                    IQueryable<Post> query = _context.Posts.Where(post => post.BlogId.Equals(id));
-                    Console.WriteLine($"{query.Count()} item(s) returned");
-                    Console.WriteLine();
-                    foreach (var post in query)
+
+                    IQueryable<Post> selectAll = _context.Posts.AsQueryable();
+                    IQueryable<Post> queryById = _context.Posts.Where(post => post.BlogId == id);
+
+                    if (id != 0)
                     {
-                        Console.WriteLine(post.ToString());
+                        Console.WriteLine($"{queryById.Count()} item(s) returned");
                         Console.WriteLine();
+                        foreach (var post in queryById)
+                        {
+                            Console.WriteLine(post.ToString());
+                            Console.WriteLine();
+                        }
                     }
+                    else
+                    {
+                        Console.WriteLine($"{selectAll.Count()} item(s) returned");
+                        Console.WriteLine();
+                        foreach (var post in selectAll)
+                        {
+                            Console.WriteLine(post.ToString());
+                            Console.WriteLine();
+                        }
+                    }
+
                     break;
                 }
                 case AllPostsFromBlog:
                 {
                     foreach (var blog in _context.Blogs)
                     {
-                        Console.WriteLine($"{index++}) Post from {blog.Name}");;
+                        Console.WriteLine($"{blog.BlogId}) Post from '{blog.Name}'");;
                     }
 
                     break;
